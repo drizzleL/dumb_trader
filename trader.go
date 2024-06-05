@@ -6,9 +6,10 @@ import (
 )
 
 type MockTrader struct {
-	Pay      float64
-	Receive  float64
-	HoldFlag int // 看多1，空-1
+	LastPrice float64
+	Pay       float64
+	Receive   float64
+	HoldFlag  int // 看多1，空-1
 }
 
 func (d *MockTrader) LastResult(price float64) float64 {
@@ -32,6 +33,10 @@ var (
 	opPrintCloseShort = "平空"
 )
 
+func printProfit(gap float64) {
+	log.Printf("gap: %f", gap)
+}
+
 func printWithTime(op string, price float64, t int64) {
 	ts := time.UnixMilli(t).Format("2006-01-02T15:04:05Z")
 	log.Printf("%s %s at %f", ts, op, price)
@@ -41,6 +46,7 @@ func (d *MockTrader) Long(price float64, t int64) {
 	if d.HoldFlag == 0 {
 		d.HoldFlag = 1
 		d.Pay += price
+		d.LastPrice = price
 		printWithTime(opPrintLong, price, t)
 		return
 	}
@@ -54,6 +60,7 @@ func (d *MockTrader) Short(price float64, t int64) {
 	if d.HoldFlag == 0 {
 		d.HoldFlag = -1
 		d.Receive += price
+		d.LastPrice = price
 		printWithTime(opPrintShort, price, t)
 		return
 	}
@@ -70,6 +77,7 @@ func (d *MockTrader) CloseLong(price float64, t int64) {
 	d.Receive += price
 	d.HoldFlag = 0
 	printWithTime(opPrintCloseLong, price, t)
+	printProfit(price - d.LastPrice)
 	println()
 }
 func (d *MockTrader) CloseShort(price float64, t int64) {
@@ -79,5 +87,6 @@ func (d *MockTrader) CloseShort(price float64, t int64) {
 	d.Pay += price
 	d.HoldFlag = 0
 	printWithTime(opPrintCloseShort, price, t)
+	printProfit(d.LastPrice - price)
 	println()
 }

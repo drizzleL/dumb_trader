@@ -10,19 +10,27 @@ import (
 
 	"github.com/adshao/go-binance/v2/futures"
 	"github.com/drizzleL/dumb_trader/binanceapi"
+	"github.com/drizzleL/dumb_trader/bot"
 	"github.com/drizzleL/dumb_trader/chart"
 	"github.com/drizzleL/dumb_trader/model"
 	"github.com/drizzleL/dumb_trader/signal"
 	"github.com/spf13/viper"
 )
 
-// 初始化币安api
-func initApi() {
+func init() {
 	viper.SetConfigFile("config.yaml")
 	viper.ReadInConfig()
+}
+
+// 初始化币安api
+func initApi() {
 	apiKey := viper.GetString("apiKey")
 	secretKey := viper.GetString("secretKey")
 	binanceapi.Init(apiKey, secretKey)
+}
+
+func initBot() {
+	bot.Init(viper.GetString("botToken"))
 }
 
 // 将范围内k线数据写入文件
@@ -67,46 +75,44 @@ func readProcess(intv model.Interval) *model.Klines {
 
 func main() {
 	Mock()
+	PrintChart()
 }
 
 // 打印图表
 func PrintChart() {
 	f, _ := os.Create("bar.html")
-	klines := readProcess(model.Interval3M)
-	klines2 := readProcess(model.Interval1M)
-	chart.PrintEma(klines, f)
-	chart.PrintEma(klines2, f)
+	klines := readProcess(model.Interval15M)
+	// klines2 := readProcess(model.Interval3M)
+
+	chart.PrintKline(klines, f)
+
+	// chart.PrintEma(klines, f)
+	// chart.PrintEma(klines2, f)
 }
 
 func Mock() {
 	// 用于开仓
-	klines := readProcess(model.Interval3M)
-	mainDict := map[int64]int{}
-	for i := range klines.Original {
-		mainDict[klines.Original[i].CloseTime] = i
-	}
+	klines := readProcess(model.Interval15M)
+	klines2 := readProcess(model.Interval3M)
 
-	// 小量级，用于平仓
-	klines2 := readProcess(model.Interval1M)
+	group := NewKlineGroup(klines, klines2)
+
+	str := &BreakStrategy{}
 
 	tr := &MockTrader{}
 	for i := 0; i < len(klines2.CloseData); i++ {
 		ts := klines2.Original[i].CloseTime
-		if idx, ok := mainDict[ts]; ok {
-			if consistent(klines, idx, 1) {
-				tr.Long(klines.CloseData[idx].InexactFloat64(), klines.Original[idx].CloseTime)
-			} else if consistent(klines, idx, -1) {
-				tr.Short(klines.CloseData[idx].InexactFloat64(), klines.Original[idx].CloseTime)
-			}
-			continue
+		opType, price := str.CheckDeal(group, ts)
+		switch opType {
+		case OpTypeLong:
+			tr.Long(price, ts)
+		case OpTypeShort:
+			tr.Short(price, ts)
+		case OpTypeCloseLong:
+			tr.CloseLong(price, ts)
+		case OpTypeCloseShort:
+			tr.CloseShort(price, ts)
 		}
-
-		if klines2.Flag["break"][i] == 1 {
-			tr.CloseShort(klines2.CloseData[i].InexactFloat64(), klines2.Original[i].CloseTime)
-		} else if klines2.Flag["break"][i] == -1 {
-			tr.CloseLong(klines2.CloseData[i].InexactFloat64(), klines2.Original[i].CloseTime)
-		}
-
 	}
 
 	log.Println(tr.LastResult(klines.CloseData[len(klines.CloseData)-1].InexactFloat64()))
@@ -114,8 +120,71 @@ func Mock() {
 
 // 同时满足
 func consistent(klines *model.Klines, i int, flag int) bool {
-	if klines.Flag["break"][i] == flag && klines.Flag["cross"][i] == flag && klines.Flag["guppy"][i] == flag {
+	if klines.Flag["guppy"][i] == flag {
 		return true
 	}
 	return false
+}
+
+type KlineGroup struct {
+	MainKlines *model.Klines
+	SideKlines *model.Klines
+	MainDict   map[int64]int
+	SideDict   map[int64]int
+}
+
+func NewKlineGroup(main, side *model.Klines) *KlineGroup {
+	mainDict := map[int64]int{}
+	for i, v := range main.Original {
+		mainDict[v.CloseTime] = i
+	}
+	sideDict := map[int64]int{}
+	for i, v := range side.Original {
+		sideDict[v.CloseTime] = i
+	}
+	return &KlineGroup{
+		MainKlines: main,
+		SideKlines: side,
+		MainDict:   mainDict,
+		SideDict:   sideDict,
+	}
+
+}
+
+type Strategy interface {
+	CheckDeal(klines *KlineGroup, ts int64) OpType
+}
+
+type OpType int
+
+const (
+	OpTypeDefault OpType = iota
+	OpTypeLong
+	OpTypeShort
+	OpTypeCloseLong
+	OpTypeCloseShort
+)
+
+type BreakStrategy struct{}
+
+func (b BreakStrategy) CheckDeal(group *KlineGroup, ts int64) (OpType, float64) {
+	// sideIdx := group.SideDict[ts]
+	mainIdx, ok := group.MainDict[ts]
+	if ok && group.MainKlines.Flag["guppy"][mainIdx] == 1 {
+		return OpTypeLong, group.MainKlines.CloseData[mainIdx].InexactFloat64()
+	}
+	if ok && group.MainKlines.Flag["guppy"][mainIdx] == -1 {
+		return OpTypeShort, group.MainKlines.CloseData[mainIdx].InexactFloat64()
+	}
+
+	// if ok && group.SideKlines.Flag["break"][sideIdx] == 1 {
+	// return OpTypeCloseShort, group.SideKlines.CloseData[sideIdx].InexactFloat64()
+	// }
+	if ok && group.MainKlines.CloseData[mainIdx].LessThan(group.MainKlines.Data["sar"][mainIdx]) {
+		return OpTypeCloseLong, group.MainKlines.CloseData[mainIdx].InexactFloat64()
+	}
+	if ok && group.MainKlines.CloseData[mainIdx].GreaterThan(group.MainKlines.Data["sar"][mainIdx]) {
+		return OpTypeCloseShort, group.MainKlines.CloseData[mainIdx].InexactFloat64()
+	}
+	return OpTypeDefault, 0
 }
