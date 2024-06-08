@@ -35,6 +35,7 @@ func klineToData(line *futures.Kline) *Data {
 		Close:     strToDec(line.Close),
 		High:      strToDec(line.High),
 		Low:       strToDec(line.Low),
+		Volume:    strToDec(line.Volume),
 	}
 }
 
@@ -49,4 +50,5 @@ type Data struct {
 	Open      decimal.Decimal
 	Close     decimal.Decimal
 	CloseTime int64
+	Volume    decimal.Decimal
 }

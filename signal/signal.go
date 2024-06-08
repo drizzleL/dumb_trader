@@ -3,6 +3,7 @@ package signal
 import (
 	"github.com/drizzleL/dumb_trader/indicator"
 	"github.com/drizzleL/dumb_trader/model"
+	"github.com/shopspring/decimal"
 )
 
 // 添加信号
@@ -16,6 +17,8 @@ func Process(k *model.Klines) {
 	k.Data["ema20"] = indicator.Ema(k.CloseData, 20)
 	k.Data["ema60"] = indicator.Ema(k.CloseData, 60)
 	k.Data["ema120"] = indicator.Ema(k.CloseData, 120)
+
+	k.Data["vwap"] = indicator.Vwap(k.ProcessedData)
 
 	k.Data["max5"] = indicator.Max(k.CloseData, 5)
 	k.Data["min5"] = indicator.Min(k.CloseData, 5)
@@ -49,6 +52,7 @@ func addSignal(k *model.Klines) {
 	k.Flag["condecr"] = make([]int, len(k.CloseData))
 	k.Flag["max"] = make([]int, len(k.CloseData))
 	k.Flag["min"] = make([]int, len(k.CloseData))
+	k.Data["gather"] = make([]decimal.Decimal, len(k.CloseData))
 	for i := 0; i < len(k.CloseData); i++ {
 		k.Flag["break"][i] = checkBreak(k, i)
 		k.Flag["cross"][i] = checkCross(k, i)
@@ -57,6 +61,7 @@ func addSignal(k *model.Klines) {
 		k.Flag["condecr"][i] = checkConDecr(k, i)
 		k.Flag["max"][i] = checkMax(k, i)
 		k.Flag["min"][i] = checkMin(k, i)
+		k.Data["gather"][i] = checkGather(k, i)
 	}
 }
 

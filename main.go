@@ -170,21 +170,22 @@ type BreakStrategy struct{}
 func (b BreakStrategy) CheckDeal(group *KlineGroup, ts int64) (OpType, float64) {
 	// sideIdx := group.SideDict[ts]
 	mainIdx, ok := group.MainDict[ts]
+	if ok && group.MainKlines.CloseData[mainIdx].LessThan(group.MainKlines.Data["sar"][mainIdx]) {
+		return OpTypeCloseLong, group.MainKlines.CloseData[mainIdx].InexactFloat64()
+	}
 	if ok && group.MainKlines.Flag["guppy"][mainIdx] == 1 {
 		return OpTypeLong, group.MainKlines.CloseData[mainIdx].InexactFloat64()
 	}
-	if ok && group.MainKlines.Flag["guppy"][mainIdx] == -1 {
-		return OpTypeShort, group.MainKlines.CloseData[mainIdx].InexactFloat64()
-	}
+	// if ok && group.MainKlines.Flag["guppy"][mainIdx] == -1 {
+	// 	return OpTypeShort, group.MainKlines.CloseData[mainIdx].InexactFloat64()
+	// }
 
 	// if ok && group.SideKlines.Flag["break"][sideIdx] == 1 {
 	// return OpTypeCloseShort, group.SideKlines.CloseData[sideIdx].InexactFloat64()
 	// }
-	if ok && group.MainKlines.CloseData[mainIdx].LessThan(group.MainKlines.Data["sar"][mainIdx]) {
-		return OpTypeCloseLong, group.MainKlines.CloseData[mainIdx].InexactFloat64()
-	}
-	if ok && group.MainKlines.CloseData[mainIdx].GreaterThan(group.MainKlines.Data["sar"][mainIdx]) {
-		return OpTypeCloseShort, group.MainKlines.CloseData[mainIdx].InexactFloat64()
-	}
+
+	// if ok && group.MainKlines.CloseData[mainIdx].GreaterThan(group.MainKlines.Data["sar"][mainIdx]) {
+	// 	return OpTypeCloseShort, group.MainKlines.CloseData[mainIdx].InexactFloat64()
+	// }
 	return OpTypeDefault, 0
 }
