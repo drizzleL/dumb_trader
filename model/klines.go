@@ -13,17 +13,26 @@ type Klines struct {
 	Flag          map[string][]int
 }
 
-func NewKlines(original []*futures.Kline) *Klines {
+func NewKlines(original []*futures.Kline, subData []*futures.Kline) *Klines {
 	ret := &Klines{
 		Original: original,
 		Data:     make(map[string][]decimal.Decimal),
 		Flag:     make(map[string][]int),
 	}
+	var subJ int
 	for _, line := range original {
 		dec, _ := decimal.NewFromString(line.Close)
 		ret.CloseData = append(ret.CloseData, dec)
 
-		ret.ProcessedData = append(ret.ProcessedData, klineToData(line))
+		d := klineToData(line)
+		for subJ < len(subData) && subData[subJ].CloseTime < line.OpenTime {
+			subJ += 1
+		}
+		for subJ < len(subData) && subData[subJ].OpenTime >= line.OpenTime && subData[subJ].CloseTime <= line.CloseTime {
+			d.ChildData = append(d.ChildData, klineToData(subData[subJ]))
+			subJ += 1
+		}
+		ret.ProcessedData = append(ret.ProcessedData, d)
 	}
 	return ret
 }
@@ -49,6 +58,8 @@ type Data struct {
 	Low       decimal.Decimal
 	Open      decimal.Decimal
 	Close     decimal.Decimal
+	OpenTime  int64
 	CloseTime int64
 	Volume    decimal.Decimal
+	ChildData []*Data
 }

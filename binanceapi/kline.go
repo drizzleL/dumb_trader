@@ -12,7 +12,7 @@ type CollectReq struct {
 	Symbol    string
 	StartTime time.Time
 	EndTime   time.Time
-	Interval  model.Interval
+	Interval  *model.Interval
 }
 
 func Collect(req CollectReq) []*futures.Kline {

@@ -107,7 +107,12 @@ func PrintKline(klines *model.Klines, f *os.File) {
 	kl.Overlap(getSar(klines))
 	// kl.Overlap(getMacd(klines))
 
-	page.AddCharts(kl)
+	// page.AddCharts(kl)
+	page.AddCharts(generateKline([][]interface{}{
+		{100, 100, 100, 100},
+		{200, 200, 200, 200},
+		{300, 300, 300, 300},
+	}))
 
 	page.Render(f)
 }
@@ -145,6 +150,5 @@ func getEmaLine(klines *model.Klines) *charts.Line {
 	line.AddSeries("ema60", getLineData(klines.Data["ema60"]))
 	line.AddSeries("ema120", getLineData(klines.Data["ema120"]))
 
-	line.AddSeries("vwap", getLineData(klines.Data["vwap"]))
 	return line
 }

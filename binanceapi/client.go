@@ -17,7 +17,6 @@ var futuresClient *futures.Client
 var deliveryClient *delivery.Client
 
 func Init(apiKey, secretKey string) {
-	client = binance.NewClient(apiKey, secretKey)
 	proxy := "socks5://127.0.0.1:1081"
 	_proxy, _ := url.Parse(proxy)
 
@@ -30,6 +29,8 @@ func Init(apiKey, secretKey string) {
 		Transport: tr,
 		Timeout:   time.Second * 5,
 	}
+
+	client = binance.NewClient(apiKey, secretKey)
 	client.HTTPClient = httpClient
 
 	futuresClient = binance.NewFuturesClient(apiKey, secretKey) // USDT-M Futures

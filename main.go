@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -34,7 +35,7 @@ func initBot() {
 }
 
 // 将范围内k线数据写入文件
-func writeFile(intv model.Interval) {
+func writeFile(intv *model.Interval) {
 	data := binanceapi.Collect(binanceapi.CollectReq{
 		Symbol:    "DOGEUSDT",
 		Interval:  intv,
@@ -48,7 +49,7 @@ func writeFile(intv model.Interval) {
 	f.Close()
 }
 
-func readFile(intv model.Interval) []*futures.Kline {
+func readFile(intv *model.Interval) []*futures.Kline {
 	fname := fmt.Sprintf("%s.json", intv.Name)
 	f, _ := os.Open(fname)
 	b, _ := io.ReadAll(f)
@@ -66,22 +67,33 @@ func LoadData() {
 	writeFile(model.Interval15M)
 }
 
-func readProcess(intv model.Interval) *model.Klines {
-	original := readFile(intv)
-	klines := model.NewKlines(original)
+func readProcess(intv, subIntv *model.Interval) *model.Klines {
+	var original, subData []*futures.Kline
+	original = readFile(intv)
+	if subIntv != nil {
+		subData = readFile(subIntv)
+	}
+	klines := model.NewKlines(original, subData)
 	signal.Process(klines)
 	return klines
 }
 
 func main() {
-	Mock()
-	PrintChart()
+	// Mock()
+	// PrintChart()
+	readPosition()
+}
+
+func readPosition() {
+	initApi()
+	// log.Println(binanceapi.ShowPrice(context.Background(), "DOGEUSDT"))
+	binanceapi.GetPosition(context.Background())
 }
 
 // 打印图表
 func PrintChart() {
 	f, _ := os.Create("bar.html")
-	klines := readProcess(model.Interval15M)
+	klines := readProcess(model.Interval15M, model.Interval3M)
 	// klines2 := readProcess(model.Interval3M)
 
 	chart.PrintKline(klines, f)
@@ -92,8 +104,8 @@ func PrintChart() {
 
 func Mock() {
 	// 用于开仓
-	klines := readProcess(model.Interval15M)
-	klines2 := readProcess(model.Interval3M)
+	klines := readProcess(model.Interval15M, nil)
+	klines2 := readProcess(model.Interval3M, nil)
 
 	group := NewKlineGroup(klines, klines2)
 

@@ -18,8 +18,6 @@ func Process(k *model.Klines) {
 	k.Data["ema60"] = indicator.Ema(k.CloseData, 60)
 	k.Data["ema120"] = indicator.Ema(k.CloseData, 120)
 
-	k.Data["vwap"] = indicator.Vwap(k.ProcessedData)
-
 	k.Data["max5"] = indicator.Max(k.CloseData, 5)
 	k.Data["min5"] = indicator.Min(k.CloseData, 5)
 
